@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pyodide Interactive Plot</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.24.0/full/pyodide.js"></script>
+</head>
+<body>
+    <h2>Pyodide Interactive Plot</h2>
+
+    <label for="expression">Enter a function of x (e.g., sin(x), x**2, exp(-x)):</label>
+    <input type="text" id="expression" value="sin(x)">
+    <button onclick="runPython()">Plot</button>
+
+    <p><strong>Output:</strong></p>
+    <img id="plot" alt="Graph will appear here">
+
+    <script>
+        async function loadPyodideAndPackages() {
+            window.pyodide = await loadPyodide();
+            await pyodide.loadPackage(["micropip"]);
+            await pyodide.runPythonAsync(`
+                import micropip
+                await micropip.install(['matplotlib', 'numpy', 'pandas'])
+                
+                import numpy as np
+                import matplotlib.pyplot as plt
+                import io
+                import base64
+                from js import document
+
+                def plot_function(expression):
+                    x = np.linspace(-10, 10, 100)
+                    y = eval(expression, {"x": x, "np": np})
+
+                    plt.switch_backend("agg")  # Use non-GUI backend
+                    fig, ax = plt.subplots()
+                    ax.plot(x, y, label=expression)
+                    ax.legend()
+
+                    buf = io.BytesIO()
+                    fig.savefig(buf, format="png")
+                    buf.seek(0)
+                    encoded = base64.b64encode(buf.read()).decode()
+
+                    document.getElementById("plot").src = "data:image/png;base64," + encoded
+            `);
+        }
+
+        async function runPython() {
+            let expression = document.getElementById("expression").value;
+            await pyodide.runPythonAsync(`plot_function("${expression}")`);
+        }
+
+        loadPyodideAndPackages();
+    </script>
+</body>
+</html>
